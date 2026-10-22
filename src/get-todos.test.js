@@ -698,15 +698,16 @@ test("removeEmptyHeadings returns lines unchanged when no headings present", () 
   expect(removeEmptyHeadings(lines)).toStrictEqual(lines);
 });
 
-test("removeEmptyHeadings removes heading whose section is only blank lines", () => {
+test("removeEmptyHeadings removes heading made empty by deleting a todo", () => {
   const lines = [
     "### Empty section",
+    "- [ ] moved",
     "",
     "",
     "### Non-empty section",
     "- [x] done",
   ];
-  expect(removeEmptyHeadings(lines)).toStrictEqual([
+  expect(removeEmptyHeadings(lines, [1])).toStrictEqual([
     "### Non-empty section",
     "- [x] done",
   ]);
@@ -717,17 +718,19 @@ test("removeEmptyHeadings keeps heading that has content directly under it", () 
   expect(removeEmptyHeadings(lines)).toStrictEqual(["### Section", "- [x] done"]);
 });
 
-test("removeEmptyHeadings removes parent heading when all sub-sections are empty", () => {
+test("removeEmptyHeadings removes parent when deletion empties all sub-sections", () => {
   const lines = [
     "### Parent",
     "#### Child 1",
+    "- [ ] first",
     "",
     "#### Child 2",
+    "- [ ] second",
     "",
     "## Unrelated",
     "- [x] content",
   ];
-  expect(removeEmptyHeadings(lines)).toStrictEqual(["## Unrelated", "- [x] content"]);
+  expect(removeEmptyHeadings(lines, [2, 5])).toStrictEqual(["## Unrelated", "- [x] content"]);
 });
 
 test("removeEmptyHeadings keeps parent heading when a sub-section has content", () => {
@@ -736,9 +739,10 @@ test("removeEmptyHeadings keeps parent heading when a sub-section has content", 
     "#### Child 1",
     "- [x] done",
     "#### Child 2",
+    "- [ ] moved",
     "",
   ];
-  expect(removeEmptyHeadings(lines)).toStrictEqual([
+  expect(removeEmptyHeadings(lines, [4])).toStrictEqual([
     "### Parent",
     "#### Child 1",
     "- [x] done",
@@ -750,9 +754,10 @@ test("removeEmptyHeadings keeps parent heading when it has direct non-todo conte
     "### Parent",
     "some paragraph text",
     "#### Child",
+    "- [ ] moved",
     "",
   ];
-  expect(removeEmptyHeadings(lines)).toStrictEqual([
+  expect(removeEmptyHeadings(lines, [3])).toStrictEqual([
     "### Parent",
     "some paragraph text",
   ]);

@@ -349,15 +349,15 @@ export default class RolloverTodosPlugin extends Plugin {
           file: lastDailyNote,
           oldContent: `${lastDailyNoteContent}`,
         };
-        let lines = lastDailyNoteContent.split("\n");
+        const removedLineIndices = [];
 
-        for (let i = lines.length - 1; i >= 0; i--) {
-          if (todos_yesterday.includes(lines[i])) {
-            lines.splice(i, 1);
+        for (let i = 0; i < lastDailyNoteLines.length; i++) {
+          if (todos_yesterday.includes(lastDailyNoteLines[i])) {
+            removedLineIndices.push(i);
           }
         }
 
-        const cleanedLines = removeEmptyHeadings(lines);
+        const cleanedLines = removeEmptyHeadings(lastDailyNoteLines, removedLineIndices);
         await this.app.vault.modify(lastDailyNote, cleanedLines.join("\n"));
       }
 

@@ -190,42 +190,64 @@ export const getSections = ({
   return sections;
 };
 
-// Removes heading lines whose entire section (direct content + sub-sections recursively)
-// contains no non-blank content after incomplete todos have been removed.
-export const removeEmptyHeadings = (lines) => {
-  const [result] = processSection(lines, 0, 0);
-  return result;
-};
-
-// Returns [filteredLines, nextIndex]. Processes lines starting at startIdx,
-// stopping when a heading at level <= parentLevel is encountered.
-function processSection(lines, startIdx, parentLevel) {
-  const result = [];
-  let i = startIdx;
-
-  while (i < lines.length) {
-    const line = lines[i];
-    const level = getHeadingLevel(line);
-
-    if (level !== null && level <= parentLevel) {
-      break;
-    }
-
-    if (level !== null) {
-      const [sectionContent, nextI] = processSection(lines, i + 1, level);
-      if (sectionContent.some((l) => l.trim() !== "")) {
-        result.push(line);
-        result.push(...sectionContent);
+// Removes selected original lines and headings made empty by those deletions.
+// Pre-existing empty headings (including their ancestors) are left intact.
+export const removeEmptyHeadings = (lines, removedLineIndices = []) => {
+  const removed = new Set(removedLineIndices);
+  let fence = null;
+  const headingLevels = lines.map((line) => {
+    const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (fence !== null) {
+      if (
+        match &&
+        match[1][0] === fence[0] &&
+        match[1].length >= fence.length &&
+        match[2].trim() === ""
+      ) {
+        fence = null;
       }
-      i = nextI;
-    } else {
-      result.push(line);
-      i++;
+      return null;
     }
-  }
+    if (match && (match[1][0] !== "`" || !match[2].includes("`"))) {
+      fence = match[1];
+      return null;
+    }
+    return getHeadingLevel(line);
+  });
 
-  return [result, i];
-}
+  // Returns [filteredLines, nextIndex, removedContent] for one heading subtree.
+  const processSection = (startIdx, parentLevel) => {
+    const result = [];
+    let removedContent = false;
+    let i = startIdx;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      if (removed.has(i)) {
+        removedContent = removedContent || line.trim() !== "";
+        i++;
+        continue;
+      }
+      const level = headingLevels[i];
+      if (level !== null && level <= parentLevel) break;
+
+      if (level !== null) {
+        const [sectionContent, nextI, childRemovedContent] = processSection(i + 1, level);
+        if (!childRemovedContent || sectionContent.some((l) => l.trim() !== "")) {
+          result.push(line, ...sectionContent);
+        }
+        removedContent = removedContent || childRemovedContent;
+        i = nextI;
+      } else {
+        result.push(line);
+        i++;
+      }
+    }
+    return [result, i, removedContent];
+  };
+
+  return processSection(0, 0)[0];
+};
 
 // Inserts textToInsert into noteContent right before the next heading at the same
 // or higher level as targetHeading (fewer or equal # signs). Falls back to appending
